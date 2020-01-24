@@ -789,10 +789,15 @@ RoomMorph.prototype.promptInvite = function (id, role, roomName, inviter) {
         msg;
 
     if (inviter === SnapCloud.username) {
-        msg = 'Would you like to move to "' + roomName + '"?';
+      // //MMSNAP
+      //   msg = 'Would you like to move to "' + roomName + '"?';
+        msg = localize('Would you like to move to "') + roomName + '"?';
     } else {
-        msg = inviter + ' has invited you to join\nhim/her at "' + roomName +
-            '"\nAccept?';
+        // //MMSNAP
+        // msg = inviter + ' has invited you to join\nhim/her at "' + roomName +
+        //     '"\nAccept?';
+        msg = inviter + localize(' has invited you to join\nhim/her at "') + roomName +
+        localize('"\nAccept?');
     }
 
     dialog.cancel = function() {
@@ -1433,7 +1438,10 @@ RoleMorph.prototype.wantsDropOf = function(aMorph) {
 RoleMorph.prototype.setOccupants = function(users) {
     this.users = users;
     // Update the contents of the caption
-    var userText = '<empty>';
+    // //MMSNAP
+    // var userText = '<empty>';
+    var userText = localize('<empty>');
+
     if (this.users.length) {
         userText = this.users.map(function(user){
             return user.username || localize('guest');
@@ -1566,7 +1574,8 @@ EditRoleMorph.prototype.init = function(room, role) {
     this.users = role.users;
 
     var txt = new TextMorph(
-        'What would you like to do?',
+        //MMSNAP
+        localize('What would you like to do?'),
         null,
         null,
         true,
@@ -1741,7 +1750,8 @@ RoomEditorMorph.prototype.init = function(room, sliderColor) {
     button.contrast = this.buttonContrast;
     button.drawNew();
 
-    button.hint = 'Add a role to the room';
+    //MMSNAP
+    button.hint = localize('Add a role to the room');
 
     button.fixLayout();
 
@@ -2043,7 +2053,8 @@ UserDialogMorph.prototype.buildContents = function() {
     this.body.add(this.listField);
 
     // add buttons
-    this.labelString = 'Invite a Friend to the Room';
+    //MMSNAP
+    this.labelString = localize('Invite a Friend to the Room');
     this.createLabel();
     this.addButton('ok', 'OK');
     this.addButton('cancel', 'Cancel');
@@ -2254,7 +2265,8 @@ CollaboratorDialogMorph.prototype.buildContents = function() {
     this.body.add(this.listField);
 
     // add buttons
-    this.labelString = 'Invite a Friend to Collaborate';
+    //MMSNAP
+    this.labelString = localize('Invite a Friend to Collaborate');
     this.createLabel();
     this.uncollaborateButton = this.addButton(function() {
         SnapCloud.evictCollaborator(myself.listField.selected.username);

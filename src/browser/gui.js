@@ -1127,7 +1127,7 @@ IDE_Morph.prototype.createControlBar = function () {
         }
         this.refreshResumeSymbol();
     };
-    
+
     this.controlBar.refreshResumeSymbol = function () {
         var pauseSymbols;
         if (Process.prototype.enableSingleStepping &&
@@ -2373,11 +2373,17 @@ IDE_Morph.prototype.applySavedSettings = function () {
         SpriteMorph.prototype.initBlocks();
     }
 
-    // language
-    if (language && language !== 'en') {
-        this.userLanguage = language;
+    // //MMSNAP overide to pt_BR
+    // // language
+    // if (language && language !== 'en') {
+    //     this.userLanguage = language;
+    // } else {
+    //     this.userLanguage = null;
+    // }
+    if (language) {
+      this.userLanguage = language;
     } else {
-        this.userLanguage = null;
+      this.userLanguage = 'pt_BR';
     }
 
     //  click
@@ -2628,14 +2634,15 @@ IDE_Morph.prototype.cloudMenu = function () {
             'Login...',
             'initializeCloud'
         );
-        menu.addItem(
-            'Signup...',
-            'createCloudAccount'
-        );
-        menu.addItem(
-            'Reset Password...',
-            'resetCloudPassword'
-        );
+        // //MMSNAP
+        // menu.addItem(
+        //     'Signup...',
+        //     'createCloudAccount'
+        // );
+        // menu.addItem(
+        //     'Reset Password...',
+        //     'resetCloudPassword'
+        // );
         if (SnapActions.isCollaborating() && SnapActions.sessionId) {
             menu.addLine();
             menu.addItem(
@@ -2648,10 +2655,11 @@ IDE_Morph.prototype.cloudMenu = function () {
             localize('Logout') + ' ' + SnapCloud.username,
             'logout'
         );
-        menu.addItem(
-            'Change Password...',
-            'changeCloudPassword'
-        );
+        // //MMSNAP
+        // menu.addItem(
+        //     'Change Password...',
+        //     'changeCloudPassword'
+        // );
     }
     if (shiftClicked) {
         menu.addLine();
@@ -3088,7 +3096,7 @@ IDE_Morph.prototype.settingsMenu = function () {
                 if (myself.isPreviousVersion()) {
                     myself.confirm(
                         'Exiting replay mode now will revert the project to\n' +
-                        'the current point in history (losing any unapplied ' + 
+                        'the current point in history (losing any unapplied ' +
                         'changes)\n\nAre you sure you want to exit replay mode?',
                         'Exit Replay Mode?',
                         function () {
@@ -4887,7 +4895,7 @@ IDE_Morph.prototype.saveFileAs = function (
 IDE_Morph.prototype.saveCanvasAs = function (canvas, fileName) {
     // Export a Canvas object as a PNG image
     // Note: This commented out due to poor browser support.
-    // cavas.toBlob() is currently supported in Firefox, IE, Chrome but 
+    // cavas.toBlob() is currently supported in Firefox, IE, Chrome but
     // browsers prevent easily saving the generated files.
     // Do not re-enable without revisiting issue #1191
     // if (canvas.toBlob) {
@@ -4897,7 +4905,7 @@ IDE_Morph.prototype.saveCanvasAs = function (canvas, fileName) {
     //     });
     //     return;
     // }
-    
+
     this.saveFileAs(canvas.toDataURL(), 'image/png', fileName);
 };
 
@@ -6390,7 +6398,7 @@ ProjectDialogMorph.prototype.buildFilterField = function () {
     this.filterField.reactToKeystroke = function (evt) {
         var text = this.getValue();
 
-        myself.listField.elements = 
+        myself.listField.elements =
             myself.projectList.filter(function (aProject) {
                 var name,
                     notes;
@@ -7130,7 +7138,7 @@ ProjectDialogMorph.prototype.fixLayout = function () {
 
 // LibraryImportDialogMorph ///////////////////////////////////////////
 // I am preview dialog shown before importing a library.
-// I inherit from a DialogMorph but look similar to 
+// I inherit from a DialogMorph but look similar to
 // ProjectDialogMorph, and BlockImportDialogMorph
 
 LibraryImportDialogMorph.prototype = new DialogBoxMorph();
@@ -7365,7 +7373,7 @@ LibraryImportDialogMorph.prototype.fixLayout = function () {
     Morph.prototype.trackChanges = oldFlag;
     this.changed();
 };
-    
+
 // Library Cache Utilities.
 LibraryImportDialogMorph.prototype.hasCached = function (key) {
     return this.libraryCache.hasOwnProperty(key);
