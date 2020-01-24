@@ -2241,7 +2241,9 @@ VariableFrame.prototype.toPortableXML = function (serializer) {
 
     if (serializer.dependencies) {
         variableNames = variableNames
-            .filter(name => serializer.dependencies.variables.includes(name));
+            //MMSNAP
+            .filter( function (name) {serializer.dependencies.variables.includes(name)});
+            //.filter(name => serializer.dependencies.variables.includes(name));
     }
 
     return variableNames.reduce(function (vars, v) {

@@ -6,7 +6,7 @@
    SnapSerializer, newCanvas, detect, WatcherMorph, SERVICES_URL */
 // Netsblox IDE (subclass of IDE_Morph)
 
-//MMNAP
+
 NetsBloxMorph.prototype = new IDE_Morph();
 NetsBloxMorph.prototype.constructor = NetsBloxMorph;
 NetsBloxMorph.uber = IDE_Morph.prototype;
