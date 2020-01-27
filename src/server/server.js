@@ -5,6 +5,8 @@ var express = require('express'),
     WebSocketServer = require('ws').Server,
     _ = require('lodash'),
     dot = require('dot'),
+    http = require('http'),
+    https = require('https'),
     Utils = _.extend(require('./utils'), require('./server-utils.js')),
     NetworkTopology = require('./network-topology'),
     Storage = require('./storage/storage'),
@@ -14,9 +16,11 @@ var express = require('express'),
     isDevMode = ENV !== 'production',
     DEFAULT_OPTIONS = {
         port: 8080,
+        // port2: 80,
         vantagePort: 1234,
         vantage: isDevMode,
     },
+
 
     // Routes
     path = require('path'),
@@ -36,6 +40,17 @@ const assert = require('assert');
 const request = require('request');
 
 var Server = function(opts) {
+  //MMSNAP
+    this._optionsSSL = {
+        key: fs.readFileSync(path.join(__dirname, 'certificado', 'netsblox.key')),
+        cert: fs.readFileSync(path.join(__dirname, 'certificado', '4a475bde633654f4.crt')),
+        ca: [
+            fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle01.crt')),
+            fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle02.crt')),
+            fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle03.crt'))
+        ]
+    };
+
     this._logger = new Logger('netsblox');
     this.opts = _.extend({}, DEFAULT_OPTIONS, opts);
     this.app = express();
@@ -44,6 +59,7 @@ var Server = function(opts) {
     });
 
     this._server = null;
+    this._serverHTTP = null;
 
     // Group and RPC Managers
     NetworkTopology.init(this._logger, Client);
@@ -270,11 +286,21 @@ Server.prototype.start = async function() {
         }
     }
     await this.configureRoutes(this.opts.servicesURL);
-    this._server = this.app.listen(this.opts.port);
+    //MMSNAP
+    // this._serverHTTP = this.app.listen(this.opts.port2);
+    // console.log(`listening on port2 ${this.opts.port2}`);
+    this._server = https.createServer(this._optionsSSL, this.app).listen(this.opts.port)
     // eslint-disable-next-line no-console
     console.log(`listening on port ${this.opts.port}`);
 
     // Enable the websocket handling
+    //MMSNAP
+    // this._ws = new WebSocketServer({server: this._serverHTTP});
+    // this._ws.on('connection', (socket, req) => {
+    //     socket.upgradeReq = req;
+    //     const client = new Client(this._logger, socket);
+    //     NetworkTopology.onConnect(client);
+    // });
     this._wss = new WebSocketServer({server: this._server});
     this._wss.on('connection', (socket, req) => {
         socket.upgradeReq = req;
@@ -292,6 +318,8 @@ Server.prototype.start = async function() {
 
 Server.prototype.stop = function(done) {
     done = done || Utils.nop;
+    this._ws.close();
+    this._serverHTTP.close(done);
     this._wss.close();
     this._server.close(done);
 };
