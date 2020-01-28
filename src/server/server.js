@@ -289,24 +289,22 @@ Server.prototype.start = async function() {
     }
     await this.configureRoutes(this.opts.servicesURL);
     //MMSNAP
-    // const server = http.createServer((req, res) => {
-    //   console.log('req: '+JSON.stringify(req))
-    //   console.log('res: '+JSON.stringify(res))
-    //   res.writeHead(301,{Location: `http://${req.headers.host}${req.url}`+':'+this.opts.port});
-    //   res.end();
-    // });
-//    this._server = this.app.listen(this.opts.port);
+    const server = http.createServer((req, res) => {
+      res.writeHead(301,{Location: `https://${req.headers.host}${req.url}`});
+      res.end();
+    }).listen(this.opts.port2);
+   // this._serverHTTP = this.app.listen(this.opts.port2);
     // eslint-disable-next-line no-console
     //console.log(`listening on port ${this.opts.port2}`);
     // server.listen(this.opts.port2);
-    // console.log(`http2https ==> ` + this.opts.port2 + ':' + this.opts.port);
+    console.log(`http2https ==> ` + this.opts.port2 + ':' + this.opts.port);
     // this._serverHTTP = http.createServer.listen(this.opts.port2)
-    //this._ws = new WebSocketServer({server: this._serverHTTP});
-   // this._ws.on('connection', (socket, req) => {
-     //   socket.upgradeReq = req;
-       // const client = new Client(this._logger, socket);
-     //   NetworkTopology.onConnect(client);
-   // });
+    // this._ws = new WebSocketServer({server: this._serverHTTP});
+    //  this._ws.on('connection', (socket, req) => {
+    //      socket.upgradeReq = req;
+    //      const client = new Client(this._logger, socket);
+    //      NetworkTopology.onConnect(client);
+    //  });
 
     // eslint-disable-next-line no-console
     this._server = https.createServer(this._optionsSSL, this.app).listen(this.opts.port)
