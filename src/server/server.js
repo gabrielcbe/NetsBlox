@@ -43,12 +43,12 @@ const request = require('request');
 var Server = function(opts) {
   //MMSNAP
     this._optionsSSL = {
-        key: fs.readFileSync(path.join(__dirname, 'certificado', 'netsblox.key')),
-        cert: fs.readFileSync(path.join(__dirname, 'certificado', '4a475bde633654f4.crt')),
+        key: fs.readFileSync(path.join(__dirname, 'certificado', 'private.key')),
+        cert: fs.readFileSync(path.join(__dirname, 'certificado', 'certificate.crt')),
         ca: [
-            fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle01.crt')),
-            fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle02.crt')),
-            fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle03.crt'))
+            //fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle01.crt')),
+           // fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle02.crt')),
+            fs.readFileSync(path.join(__dirname, 'certificado', 'ca_bundle.crt'))
         ]
     };
 
@@ -60,7 +60,7 @@ var Server = function(opts) {
     });
 
     this._server = null;
-    this._serverHTTP = null;
+//    this._serverHTTP = null;
 
     // Group and RPC Managers
     NetworkTopology.init(this._logger, Client);
@@ -68,7 +68,7 @@ var Server = function(opts) {
 
 Server.prototype.configureRoutes = async function(servicesURL) {
     this.app.use(express.static(__dirname + '/../browser/'));
-
+this.app.use(express.static(__dirname + '/sslforfree'));
     // Session & Cookie settings
     this.app.use(cookieParser());
 
@@ -295,18 +295,18 @@ Server.prototype.start = async function() {
     //   res.writeHead(301,{Location: `http://${req.headers.host}${req.url}`+':'+this.opts.port});
     //   res.end();
     // });
-    this._serverHTTP = this.app.listen(this.opts.port2);
+//    this._server = this.app.listen(this.opts.port);
     // eslint-disable-next-line no-console
-    console.log(`listening on port ${this.opts.port2}`);
+    //console.log(`listening on port ${this.opts.port2}`);
     // server.listen(this.opts.port2);
     // console.log(`http2https ==> ` + this.opts.port2 + ':' + this.opts.port);
     // this._serverHTTP = http.createServer.listen(this.opts.port2)
-    this._ws = new WebSocketServer({server: this._serverHTTP});
-    this._ws.on('connection', (socket, req) => {
-        socket.upgradeReq = req;
-        const client = new Client(this._logger, socket);
-        NetworkTopology.onConnect(client);
-    });
+    //this._ws = new WebSocketServer({server: this._serverHTTP});
+   // this._ws.on('connection', (socket, req) => {
+     //   socket.upgradeReq = req;
+       // const client = new Client(this._logger, socket);
+     //   NetworkTopology.onConnect(client);
+   // });
 
     // eslint-disable-next-line no-console
     this._server = https.createServer(this._optionsSSL, this.app).listen(this.opts.port)
