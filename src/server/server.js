@@ -43,12 +43,12 @@ const request = require('request');
 var Server = function(opts) {
   //MMSNAP
     this._optionsSSL = {
-        key: fs.readFileSync(path.join(__dirname, 'certificado', 'netsblox.key')),
-        cert: fs.readFileSync(path.join(__dirname, 'certificado', 'bfa62accf1f342c8.crt')),
+        key: fs.readFileSync(path.join(__dirname, 'certificado', 'private.key')),
+        cert: fs.readFileSync(path.join(__dirname, 'certificado', 'certificate.crt')),
         ca: [
             //fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle01.crt')),
            // fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle02.crt')),
-            fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle-g2-g1.crt'))
+            fs.readFileSync(path.join(__dirname, 'certificado', 'ca_bundle.crt'))
         ]
     };
 
