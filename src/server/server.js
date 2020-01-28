@@ -13,10 +13,11 @@ var express = require('express'),
     EXAMPLES = require('./examples'),
     Vantage = require('./vantage/vantage'),
     ENV = process.env.ENV,
+    PORT2 = process.env.PORT2,
     isDevMode = ENV !== 'production',
     DEFAULT_OPTIONS = {
         port: 8080,
-        // port2: 80,
+        port2: process.env.PORT2,
         vantagePort: 1234,
         vantage: isDevMode,
     },
@@ -59,7 +60,7 @@ var Server = function(opts) {
     });
 
     this._server = null;
-    this._serverHTTP = null;
+    // this._serverHTTP = null;
 
     // Group and RPC Managers
     NetworkTopology.init(this._logger, Client);
@@ -84,6 +85,8 @@ Server.prototype.configureRoutes = async function(servicesURL) {
         res.header('Access-Control-Allow-Credentials', true);
         res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, SESSIONGLUE');
         res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, PUT, PATCH, DELETE');
+        if(!req.secure) { return res.redirect(['https://', req.get('Host'), req.url].join('')); }
+
         next();
     });
 
@@ -287,20 +290,19 @@ Server.prototype.start = async function() {
     }
     await this.configureRoutes(this.opts.servicesURL);
     //MMSNAP
-    // this._serverHTTP = this.app.listen(this.opts.port2);
-    // console.log(`listening on port2 ${this.opts.port2}`);
+    const server = http.createServer((req, res) => {
+      res.writeHead(301,{Location: `https://${req.headers.host}${req.url}`});
+      res.end();
+    });
+
+    server.listen(3000);
+    console.log(`http2https ==> 3000:443`);
+
+
     this._server = https.createServer(this._optionsSSL, this.app).listen(this.opts.port)
     // eslint-disable-next-line no-console
     console.log(`listening on port ${this.opts.port}`);
 
-    // Enable the websocket handling
-    //MMSNAP
-    // this._ws = new WebSocketServer({server: this._serverHTTP});
-    // this._ws.on('connection', (socket, req) => {
-    //     socket.upgradeReq = req;
-    //     const client = new Client(this._logger, socket);
-    //     NetworkTopology.onConnect(client);
-    // });
     this._wss = new WebSocketServer({server: this._server});
     this._wss.on('connection', (socket, req) => {
         socket.upgradeReq = req;
@@ -318,8 +320,8 @@ Server.prototype.start = async function() {
 
 Server.prototype.stop = function(done) {
     done = done || Utils.nop;
-    this._ws.close();
-    this._serverHTTP.close(done);
+    // this._ws.close();
+    // this._serverHTTP.close(done);
     this._wss.close();
     this._server.close(done);
 };
