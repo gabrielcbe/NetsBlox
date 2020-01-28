@@ -60,7 +60,7 @@ var Server = function(opts) {
     });
 
     this._server = null;
-    // this._serverHTTP = null;
+    this._serverHTTP = null;
 
     // Group and RPC Managers
     NetworkTopology.init(this._logger, Client);
@@ -85,7 +85,6 @@ Server.prototype.configureRoutes = async function(servicesURL) {
         res.header('Access-Control-Allow-Credentials', true);
         res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, SESSIONGLUE');
         res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, PUT, PATCH, DELETE');
-        if(!req.secure) { return res.redirect(['https://', req.get('Host'), req.url].join('')); }
 
         next();
     });
@@ -290,17 +289,27 @@ Server.prototype.start = async function() {
     }
     await this.configureRoutes(this.opts.servicesURL);
     //MMSNAP
-    const server = http.createServer((req, res) => {
-      res.writeHead(301,{Location: `https://${req.headers.host}${req.url}`});
-      res.end();
+    // const server = http.createServer((req, res) => {
+    //   console.log('req: '+JSON.stringify(req))
+    //   console.log('res: '+JSON.stringify(res))
+    //   res.writeHead(301,{Location: `http://${req.headers.host}${req.url}`+':'+this.opts.port});
+    //   res.end();
+    // });
+    this._serverHTTP = this.app.listen(this.opts.port2);
+    // eslint-disable-next-line no-console
+    console.log(`listening on port ${this.opts.port2}`);
+    // server.listen(this.opts.port2);
+    // console.log(`http2https ==> ` + this.opts.port2 + ':' + this.opts.port);
+    // this._serverHTTP = http.createServer.listen(this.opts.port2)
+    this._ws = new WebSocketServer({server: this._serverHTTP});
+    this._ws.on('connection', (socket, req) => {
+        socket.upgradeReq = req;
+        const client = new Client(this._logger, socket);
+        NetworkTopology.onConnect(client);
     });
 
-    server.listen(3000);
-    console.log(`http2https ==> 3000:443`);
-
-
-    this._server = https.createServer(this._optionsSSL, this.app).listen(this.opts.port)
     // eslint-disable-next-line no-console
+    this._server = https.createServer(this._optionsSSL, this.app).listen(this.opts.port)
     console.log(`listening on port ${this.opts.port}`);
 
     this._wss = new WebSocketServer({server: this._server});
