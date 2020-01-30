@@ -43,7 +43,7 @@ const request = require('request');
 var Server = function(opts) {
   //MMSNAP
     this._optionsSSL = {
-        key: fs.readFileSync(path.join(__dirname, 'certificado', 'gdd-private.key')),
+        key: fs.readFileSync(path.join(__dirname, 'certificado', 'gdd-private.txt')),
         cert: fs.readFileSync(path.join(__dirname, 'certificado', '68959e5b6022e40d.crt')),
         ca: [
             //fs.readFileSync(path.join(__dirname, 'certificado', 'gd_bundle01.crt')),
