@@ -1042,6 +1042,16 @@ SpriteMorph.prototype.ArduinoAnalog_Read = function(pin) {
   //pin = parseInt(pin);
   //console.log(pin);
 
+  if (pin_modes_arduino[pin] == -1) {
+    sendMessageArduino("set_mode_digital_output", pin, null, function(){
+      console.log('1pin: ' + pin + 'tem valor zero');
+      sendMessageArduino("digital_write", pin, 0, function() {
+        console.log('pin: ' + pin + 'tem valor zero');
+      })
+    })
+  }
+
+
   if (pin_modes_arduino[pin] !== ANALOG_INPUT) {
     pin_modes_arduino[pin] = ANALOG_INPUT;
     msg = {
@@ -1058,6 +1068,15 @@ SpriteMorph.prototype.ArduinoAnalog_Read = function(pin) {
 }
 SpriteMorph.prototype.ArduinoDigital_Read = function(pin) {
   pin = parseInt(pin, 10);
+
+  if (pin_modes_arduino[pin] == -1) {
+    sendMessageArduino("set_mode_digital_output", pin, null, function(){
+      console.log('1pin: ' + pin + 'tem valor zero');
+      sendMessageArduino("digital_write", pin, 0, function() {
+        console.log('pin: ' + pin + 'tem valor zero');
+      })
+    })
+  }
 
   if (pin_modes_arduino[pin] !== DIGITAL_INPUT) {
     pin_modes_arduino[pin] = DIGITAL_INPUT;
