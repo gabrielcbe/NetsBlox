@@ -105,9 +105,9 @@ function statusConnectionArduino(urlConexaoArduinoArg) {
 
     clientArduino.onclose = function(e) {
       console.log("Conexão Arduino fechada.");
-      digital_inputs.fill(0);
-      analog_inputs.fill(0);
-      pin_modes.fill(-1);
+      digital_inputs_arduino.fill(0);
+      analog_inputs_arduino.fill(0);
+      pin_modes_arduino.fill(-1);
       
       clienteConectadoArduino = false;
       registraDesconexaoArduino(e);
