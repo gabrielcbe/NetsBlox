@@ -850,60 +850,44 @@ SpriteMorph.prototype.mBotServo = function(connector, slot, angle) {
 }
 
 SpriteMorph.prototype.mBotLed = function(index, red, green, blue) {
-  var now = +new Date();
-  if (now - lastmsg > 1000) { // 1s
-    lastmsg = now;
-    if (red > 255) {
-      red = 255;
-    }
-    if (green > 255) {
-      green = 255;
-    }
-    if (blue > 255) {
-      blue = 255;
-    }
+  if (red > 255) red = 255;
 
-    if (index == "1") {
+  if (green > 255) green = 255;
 
-      var comando = LEDLEFT;
-      var valor = red + "," + green + "," + blue;
-      sendMessagemBot(comando, valor);
+  if (blue > 255) blue = 255;
 
-    } else if (index == "2") {
-
-      var comando = LEDRIGHT;
-      var valor = red + "," + green + "," + blue;
-      sendMessagemBot(comando, valor);
-
-    } else {
-
-      var comando = LEDBOTH;
-      var valor = red + "," + green + "," + blue;
-      sendMessagemBot(comando, valor);
-
-    }
+  if (index == "1") {
+    var comando = LEDLEFT;
+    var valor = red + "," + green + "," + blue;
+    sendMessagemBot(comando, valor);
+  } else if (index == "2") {
+    var comando = LEDRIGHT;
+    var valor = red + "," + green + "," + blue;
+    sendMessagemBot(comando, valor);
+  } else {
+    var comando = LEDBOTH;
+    var valor = red + "," + green + "," + blue;
+    sendMessagemBot(comando, valor);
   }
-}
+};
 
 SpriteMorph.prototype.mBotBuzzer = function(tone, beat) {
   //console.log('min: '+min)
-  if (min < 125)
-    min = 125;
-  else
-    min = eval(beat) * 1000;
+  if (min < 125) min = 125;
+  else min = eval(beat) * 1000;
 
   var now = +new Date();
-  if (now - lastmsg > min) { // 500ms
+  if (now - lastmsg > min) {
+    // 500ms
     lastmsg = now;
 
     var comando = PLAYNOTE;
-    var valor = tone + ',' + beat;
+    var valor = tone + "," + beat;
     sendMessagemBot(comando, valor);
-
   } else {
-    console.log('too fast');
+    console.log("too fast");
   }
-}
+};
 
 
 SpriteMorph.prototype.ArduinoReportConnected = function () {
