@@ -94,6 +94,12 @@ NetworkTopology.prototype.getSocketsAtProject = function(projectId) {
     return this._sockets.filter(socket => socket.projectId === projectId);
 };
 
+NetworkTopology.prototype.isProjectActive = function(projectId, skipId) {
+    const sockets = this.getSocketsAtProject(projectId)
+        .filter(socket => socket.uuid !== skipId);
+    return sockets.length > 0;
+};
+
 NetworkTopology.prototype.setClientState = async function(clientId, projectId, roleId, username) {
     const client = this.getSocket(clientId);
 
@@ -116,7 +122,7 @@ NetworkTopology.prototype.setClientState = async function(clientId, projectId, r
 };
 
 NetworkTopology.prototype.getRoomState = function(projectId, refresh=false) {
-    return Projects.getRawProjectById(projectId, {unmarkForDeletion: refresh})
+    return Projects.getProjectMetadataById(projectId, {unmarkForDeletion: refresh})
         .then(metadata => {
             if (!metadata) throw new Error('could not find project', projectId);
             const ids = Object.keys(metadata.roles).sort();

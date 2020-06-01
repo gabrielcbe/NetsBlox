@@ -72,7 +72,7 @@ const canLoadXml = string => {
     var xml;
 
     // Add a collabId and reserialize
-    var res = Browser.SnapActions.uniqueIdForImport(string);
+    var res = Browser.SnapActions.assignUniqueIds(string);
     xml = res.toString();
     assert(parser.parse(xml));
 };
@@ -175,6 +175,38 @@ const sleep = delay => {
     return deferred.promise;
 };
 
+async function shouldThrow(fn, Err, msg) {
+    try {
+        await fn();
+    } catch (err) {
+        if (err instanceof Error) {
+            assert.equal(err.constructor.name, Err.name);
+        } else {
+            console.error(`Caught ${typeof err}:`, err);
+        }
+        return;
+    }
+    throw new Error(msg || `Expected fn to throw ${Err.name}`);
+}
+
+function suiteName(filename) {
+    return filename
+        .replace(PROJECT_ROOT, '')
+        .replace(new RegExp('/test/(unit/server|[a-z]+)/'), '')
+        .replace(/\.js$/, '');
+}
+
+async function expect(fn, err) {
+    const start = Date.now();
+    const maxEndTime = start + 1500;
+    while (!await fn()) {
+        await sleep(25);
+        if (Date.now() > maxEndTime) {
+            throw err;
+        }
+    }
+}
+
 module.exports = {
     verifyRPCInterfaces: function(serviceName, interfaces) {
         describe(`${serviceName} interfaces`, function() {
@@ -203,6 +235,11 @@ module.exports = {
     createRoom: createRoom,
     createSocket: createSocket,
     sendEmptyRole: sendEmptyRole,
+    shouldThrow,
+    fixtures,
+    suiteName,
+    expect,
+    nop: () => {},
 
     reqSrc
 };

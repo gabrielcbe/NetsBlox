@@ -124,52 +124,54 @@ ServiceCreation.getCreateFromTableOptions = function(data) {
 
     const fields = data[0];
     const indexField = fields[0];
-    const constantFields = this._getConstantFields(data);
     const dataVariable = getVariableNameForData(fields);
-    const rpcOptions = fields.slice(1).map((field, i) => {
-        const column = i + 2;
-        if (constantFields.includes(field)) {
-            return {
-                name: `get${toUpperCamelCase(field)}`,
-                help: `Get the ${field} for the given ${indexField}`,
-                code: Blocks.getColumnFromFirst({field: indexField, column, dataVariable}),
-            };
-        } else {
-            return {
-                name: `get${toUpperCamelCase(field)}Data`,
-                help: `Get ${field} data for the given ${indexField}`,
-                query: Blocks.query({field: indexField, column, dataVariable}),
-                transform: Blocks.transform({field: indexField, column}),
-            };
-        }
-    });
+    const rpcOptions = [];
 
     if (this._hasUniqueIndexField(data)) {
-        const column = 1;
-        const getRecordRPC = {
-            name: 'getRecord',
-            help: `Get data for the given ${indexField}.`,
-            query: Blocks.query({field: indexField, column, dataVariable}),
-        };
-        rpcOptions.unshift(getRecordRPC);
-
         fields.forEach((field, index) => {
             const column = index + 1;
             rpcOptions.push({
-                name: `getAll${toUpperCamelCase(field)}Values`,
+                name: `get${toUpperCamelCase(field)}Column`,
                 help: `Get ${field} values with data available.`,
                 query: Blocks.reportTrue(),
                 transform: Blocks.transform({column}),
             });
+
+            if (index > 0) {
+                rpcOptions.push({
+                    name: `get${toUpperCamelCase(field)}By${toUpperCamelCase(indexField)}`,
+                    help: `Get ${field} values with data available.`,
+                    query: Blocks.reportTrue(),
+                    transform: Blocks.getColumns({column}),
+                });
+            }
+        });
+        rpcOptions.push({
+            name: 'getValue',
+            help: `Get value given a ${indexField} value and column name.`,
+            code: Blocks.getValue({fields, dataVariable}),
         });
     } else {
         const column = 1;
-        const getRecordRPC = {
-            name: 'getRecords',
-            help: `Get all data for the given ${indexField}.`,
-            query: Blocks.query({field: indexField, column, dataVariable}),
-        };
-        rpcOptions.unshift(getRecordRPC);
+        const constantFields = this._getConstantFields(data);
+        const getFieldsByIndexField = fields.slice(1).map((field, i) => {
+            const column = i + 2;
+            if (constantFields.includes(field)) {
+                return {
+                    name: `get${toUpperCamelCase(field)}For${toUpperCamelCase(indexField)}`,
+                    help: `Get the ${field} for the given ${indexField}`,
+                    code: Blocks.getColumnFromFirst({field: indexField, column, dataVariable}),
+                };
+            } else {
+                return {
+                    name: `get${toUpperCamelCase(field)}`,
+                    help: `Get ${field} data for the given ${indexField}`,
+                    query: Blocks.query({field: indexField, column, dataVariable}),
+                    transform: Blocks.transform({field: indexField, column}),
+                };
+            }
+        });
+        rpcOptions.push(...getFieldsByIndexField);
 
         const getIndexFieldRPC = {
             name: `getAll${toUpperCamelCase(indexField)}Values`,
@@ -179,6 +181,14 @@ ServiceCreation.getCreateFromTableOptions = function(data) {
             combine: Blocks.combineIfUnique(),
         };
         rpcOptions.push(getIndexFieldRPC);
+    }
+
+    if (data.length < 2000) {
+        rpcOptions.push({
+            name: 'getTable',
+            help: 'Get the entire dataset as a table',
+            code: Blocks.getTable({fields})
+        });
     }
 
     return {
@@ -239,26 +249,33 @@ ServiceCreation.createServiceFromTable = async function(name, data, options) {
     options = resolveOptions(options, defaultOptions);
 
     const methods = options.RPCs.map(rpc => {
-        const {name, help='', code, query, transform} = rpc;
+        const {name, help='', code, query, transform, combine} = rpc;
         const method = {name, help};
 
         if (code) {
-            method.arguments = getBlockArgs(code);
+            method.arguments = getBlockArgs(code).slice(0, -1);
             method.code = code;
         } else {  // use query and transform instead
             method.query = {
                 arguments: getBlockArgs(query),
                 code: query
             };
+            method.arguments = method.query.arguments.slice(0, -1);
             if (transform) {
                 method.transform = {
                     arguments: getBlockArgs(transform),
                     code: transform
                 };
+                method.arguments.push(...method.transform.arguments.slice(0, -1));
             }
-            method.arguments = method.query.arguments.slice();
+            if (combine) {
+                method.combine = {
+                    arguments: getBlockArgs(combine),
+                    code: combine
+                };
+                method.arguments.push(...method.combine.arguments.slice(0, -2));
+            }
         }
-        method.arguments.pop();  // remove the "data" argument
 
         return method;
     });

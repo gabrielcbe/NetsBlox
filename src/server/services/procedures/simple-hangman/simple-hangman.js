@@ -1,5 +1,3 @@
-// This is a hangman set of RPC's which will select a word for the student to
-// try to guess
 /**
  * The SimpleHangman Service provides RPCs for playing single player hangman.
  * The service will choose a word for the player to guess using the given RPCs.
@@ -9,8 +7,7 @@
  */
 'use strict';
 
-// Word list
-const words = ['accurate','address', 'afford','alert','analyze','ancestor',
+const WORD_BANK = ['accurate','address', 'afford','alert','analyze','ancestor',
     'annual','apparent','appropriate','arena','arrest','ascend','assist','attempt',
     'attentive','attractive','awkward','baggage','basic','benefit','blend','blossom',
     'burrow','calculate','capable','captivity','carefree','century','chamber',
@@ -36,15 +33,20 @@ var SimpleHangman = function() {
     this._state.wrongGuesses = 0;
     this._state.knownIndices = [];
 
-    this._restart();
+    this._reset();
 };
 
-// Actions
+/**
+ * Restart the current game.
+ */
 SimpleHangman.prototype.restart = function() {
-    this._restart();
+    this._reset();
     return true;
 };
 
+/**
+ * Get the current word with where unknown letters are replaced with "_".
+ */
 SimpleHangman.prototype.getCurrentlyKnownWord = function() {
     var letters = this._state.word.split('').map(() => '_');
 
@@ -56,6 +58,10 @@ SimpleHangman.prototype.getCurrentlyKnownWord = function() {
     return letters.join(' ');
 };
 
+/**
+ * Guess a letter in the current word.
+ * @param {String} letter
+ */
 SimpleHangman.prototype.guess = function(letter) {
     var indices,
         added;
@@ -70,25 +76,30 @@ SimpleHangman.prototype.guess = function(letter) {
     return indices;
 };
 
+/**
+ * Check if the current word has been guessed correctly.
+ */
 SimpleHangman.prototype.isWordGuessed = function() {
     var isComplete = this._state.word.length === this._state.knownIndices.length;
     return isComplete;
 };
 
+/**
+ * Get the current number of incorrect guesses.
+ */
 SimpleHangman.prototype.getWrongCount = function() {
     logger.trace('wrong count is '+this._state.wrongGuesses);
     return this._state.wrongGuesses;
 };
 
-// Private
 /**
  * Get a new random word
  *
  * @return {undefined}
  */
-SimpleHangman.prototype._restart = function() {
-    var index = Math.floor(Math.random()*words.length);
-    this._state.word = words[index];
+SimpleHangman.prototype._reset = function() {
+    const index = Math.floor(Math.random()*WORD_BANK.length);
+    this._state.word = WORD_BANK[index];
     this._state.wrongGuesses = 0;
     this._state.knownIndices = [];
 };

@@ -7,6 +7,9 @@ const NBService = require('./service.js'),
     request = require('request'),
     rp = require('request-promise');
 
+const {InvalidKeyError} = require('./api-key');
+const utils = require('./index');
+
 class ApiConsumer extends NBService {
     constructor(name, baseUrl, opts) {
         opts = _.merge({
@@ -43,6 +46,7 @@ class ApiConsumer extends NBService {
     /**
         queryOptions = {
             url,
+            cacheKey,
             path,
             queryString,
             baseUrl,
@@ -67,7 +71,7 @@ class ApiConsumer extends NBService {
         // TODO implement a defaults object
         if (Array.isArray(queryOptions)) {
             this._logger.trace('requesting data from', queryOptions.length, 'sources');
-            let promises = queryOptions.map( qo => this._requestData(qo));
+            let promises = queryOptions.map(qo => this._requestData(qo));
             return Promise.all(promises);
         }
         const fullUrl = this._getFullUrl(queryOptions);
@@ -84,12 +88,27 @@ class ApiConsumer extends NBService {
                 json: queryOptions.json !== undefined ? queryOptions.json : true
             });
         }).catch(err => {
-            this._logger.error('error in requesting data from', fullUrl, err);
+            const isStatusCodeError = err.name === 'StatusCodeError';
+            if (isStatusCodeError) {
+                this._checkInvalidApiKey(err.statusCode);
+            }
+            this._logger.error('error in requesting data from', fullUrl, err.message);
             throw err;
         });
     }
 
+    _checkInvalidApiKey(statusCode) {
+        const is4xxError = statusCode > 399 && statusCode < 500;
+        if (is4xxError && this.apiKey) {
+            throw new InvalidKeyError(this.apiKey);
+        }
+    }
+
     _getCacheKey(queryOptions){
+        if (queryOptions.cacheKey) {
+            return typeof queryOptions.cacheKey === 'string' ? queryOptions.cacheKey :
+                JSON.stringify(queryOptions.cacheKey);
+        }
         let parameters = [];
         parameters.push(queryOptions.method || 'GET');
         const fullUrl = this._getFullUrl(queryOptions);
@@ -107,43 +126,44 @@ class ApiConsumer extends NBService {
      * @return {Response Obj}              response object from 'request' module
      */
     _requestImage(queryOptions){
-        let logger = this._logger;
+        const logger = this._logger;
         const fullUrl = this._getFullUrl(queryOptions);
         let requestImage = () => {
             logger.trace('requesting image from', fullUrl);
-            var imgResponse = request.get(fullUrl);
+            const deferred = Q.defer();
+            const imgResponse = request.get(fullUrl);
             delete imgResponse.headers['cache-control'];
-            imgResponse.isImage = true;
             imgResponse.on('response', res => {
-                if (!res.headers['content-type'].startsWith('image')) {
-                    logger.error(res.headers['content-type']);
-                    logger.error('invalid id / response',res.headers);
-                    imgResponse.isImage = false;
-                    deferred.reject('requested resource is not a valid image.');
+                try {
+                    this._checkInvalidApiKey(res.statusCode);
+                } catch (err) {
+                    return deferred.reject(err);
                 }
+
+                const success = res.statusCode > 199 && res.statusCode < 300;
+                let respData = new Buffer(0);  // FIXME
+                imgResponse.on('data', function(data) {
+                    respData = Buffer.concat([respData, data]);
+                });
+                imgResponse.on('end', function() {
+                    if (success) {
+                        deferred.resolve(respData);
+                    } else {
+                        const defaultError = 'requested resource is not a valid image.';
+                        deferred.reject(new Error(respData.toString() || defaultError));
+                    }
+                });
+                imgResponse.on('error', deferred.reject);
             });
-            let deferred = Q.defer();
-            var imageBuffer = new Buffer(0);
-            imgResponse.on('data', function(data) {
-                imageBuffer = Buffer.concat([imageBuffer, data]);
-            });
-            imgResponse.on('end', function() {
-                if (imgResponse.isImage){
-                    deferred.resolve(imageBuffer);
-                }
-            });
-            imgResponse.on('error', err => {
-                deferred.reject(err);
-            });
-            return deferred.promise.catch(err => {
-                this._logger.error('error in requesting the image',fullUrl, err);
-                throw err;
-            });
+
+            return deferred.promise;
         };
+
         if (queryOptions.cache === false) {
             return requestImage();
-        }else {
-            return this._cache.wrap(fullUrl, ()=>{
+        } else {
+            const cacheKey = this._getCacheKey(queryOptions);
+            return this._cache.wrap(cacheKey, () => {
                 return requestImage();
             });
         }
@@ -221,6 +241,10 @@ class ApiConsumer extends NBService {
                 this._logger.trace('got response');
                 this._logger.trace(this.__queryJson(res,selector));
             });
+    }
+
+    static setRequiredApiKey(service, apiKey) {
+        utils.setRequiredApiKey(service, apiKey);
     }
 }
 

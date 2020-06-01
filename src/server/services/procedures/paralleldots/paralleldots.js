@@ -9,8 +9,9 @@
  */
 
 const ApiConsumer = require('../utils/api-consumer');
+const {ParallelDotsKey, InvalidKeyError} = require('../utils/api-key');
 const ParallelDots = new ApiConsumer('ParallelDots', 'https://apis.paralleldots.com/v4',{cache: {ttl: 5*60}});
-const key = process.env.PARALLELDOTS_KEY;
+ApiConsumer.setRequiredApiKey(ParallelDots, ParallelDotsKey);
 
 const toLowerCaseKeys = object => {
     const result = {};
@@ -22,14 +23,19 @@ const toLowerCaseKeys = object => {
     return result;
 };
 
-ParallelDots._parallelDotsRequest = function(path, text){
-    let body = `api_key=${key}&text=${encodeURI(text)}`;
-    return this._sendAnswer({
+ParallelDots._parallelDotsRequest = async function(path, text){
+    let body = `api_key=${this.apiKey.value}&text=${encodeURI(text)}`;
+    const response = await this._sendAnswer({
         path: path,
         method: 'POST',
         headers: {'Content-Type' : 'application/x-www-form-urlencoded'},
-        body: body
+        body: body,
+        cacheKey: {path, text}
     });
+    if (response.code === 400) {
+        throw new InvalidKeyError(this.apiKey);
+    }
+    return response;
 };
 
 /**
@@ -49,11 +55,12 @@ ParallelDots.getSentiment = async function(text) {
  * @param {String} text2 Long text (more than 2 words)
  */
 ParallelDots.getSimilarity = async function(text1, text2) {
-    const body = `api_key=${key}&text_1=${encodeURI(text1)}&text_2=${encodeURI(text2)}`;
+    const body = `api_key=${this.apiKey.value}&text_1=${encodeURI(text1)}&text_2=${encodeURI(text2)}`;
     const result = await this._sendAnswer({
         path: '/similarity', method: 'POST',
         headers: {'Content-Type' : 'application/x-www-form-urlencoded'},
-        body: body
+        body: body,
+        cacheKey: {method: 'similarity', text1, text2}
     });
     return result.similarity_score;
 };
@@ -128,16 +135,6 @@ ParallelDots.getIntent = async function(text) {
  */
 ParallelDots.getAbuse = function(text) {
     return this._parallelDotsRequest('/abuse', text);
-};
-
-
-ParallelDots.isSupported = () => {
-    if(!key){
-        /* eslint-disable no-console*/
-        console.error('PARALLELDOTS_KEY is missing.');
-        /* eslint-enable no-console*/
-    }
-    return !!key;
 };
 
 module.exports = ParallelDots;

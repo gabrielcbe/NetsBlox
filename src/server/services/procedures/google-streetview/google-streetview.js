@@ -7,20 +7,10 @@
  */
 'use strict';
 
-var key = process.env.GOOGLE_MAPS_KEY;
-
+const {GoogleMapsKey} = require('../utils/api-key');
 const ApiConsumer = require('../utils/api-consumer');
 const GoogleStreetView = new ApiConsumer('GoogleStreetView', 'https://maps.googleapis.com/maps/api/streetview',{cache: {ttl: 7*24*60*60}});
-
-GoogleStreetView.isSupported = () => {
-    if(!key){
-        /* eslint-disable no-console*/
-        console.error('GOOGLE_MAPS_KEY is missing.');
-        /* eslint-enable no-console*/
-    }
-    return !!key;
-};
-
+ApiConsumer.setRequiredApiKey(GoogleStreetView, GoogleMapsKey);
 
 /**
  * Get Street View image of a location using coordinates
@@ -35,7 +25,10 @@ GoogleStreetView.isSupported = () => {
  * @deprecated
  */
 GoogleStreetView.getViewFromLatLong = function(latitude, longitude, width, height, fieldofview, heading, pitch) {
-    return this._sendImage({queryString: `?size=${width}x${height}&location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}&key=${key}`, method: 'GET'});
+    const key = this.apiKey.value;
+    const cacheKey = `size=${width}x${height}&location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}`;
+    const queryString = `?${cacheKey}&key=${key}`;
+    return this._sendImage({queryString, cacheKey, method: 'GET'});
 };
 
 /**
@@ -50,7 +43,10 @@ GoogleStreetView.getViewFromLatLong = function(latitude, longitude, width, heigh
  * @returns {Image} Image of requested location with specified size and orientation
  */
 GoogleStreetView.getView = function(latitude, longitude, width, height, fieldofview, heading, pitch) {
-    return this._sendImage({queryString: `?size=${width}x${height}&location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}&key=${key}`, method: 'GET'});
+    const key = this.apiKey.value;
+    const cacheKey = `size=${width}x${height}&location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}`;
+    const queryString = `?${cacheKey}&key=${key}`;
+    return this._sendImage({queryString, cacheKey, method: 'GET'});
 };
 
 
@@ -65,7 +61,10 @@ GoogleStreetView.getView = function(latitude, longitude, width, height, fieldofv
  * @returns {Image} Image of requested location with specified size and orientation
  */
 GoogleStreetView.getViewFromAddress = function(location, width, height, fieldofview, heading, pitch) {
-    return this._sendImage({queryString: `?size=${width}x${height}&location=${location}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}&key=${key}`, method: 'GET'});
+    const key = this.apiKey.value;
+    const cacheKey = `size=${width}x${height}&location=${location}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}`;
+    const queryString = `?${cacheKey}&key=${key}`;
+    return this._sendImage({queryString, cacheKey, method: 'GET'});
 };
 
 
@@ -82,9 +81,12 @@ GoogleStreetView.getViewFromAddress = function(location, width, height, fieldofv
  * @returns {Object} Metadata infromation about the requested Street View.
  */
 GoogleStreetView.getInfo = function(latitude, longitude, width, height, fieldofview, heading, pitch) {
+    const key = this.apiKey.value;
+    const cacheKey = `location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}`;
     const queryOpts = {
         path: '/metadata',
-        queryString: `?location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}&key=${key}`
+        queryString: `?${cacheKey}&key=${key}`,
+        cacheKey
     };
     const parserFn = resp => resp; // explicitly do nothing
     return this._sendStruct(queryOpts, parserFn);
@@ -102,9 +104,12 @@ GoogleStreetView.getInfo = function(latitude, longitude, width, height, fieldofv
  * @returns {Object} Metadata infromation about the requested Street View.
  */
 GoogleStreetView.getInfoFromAddress = function(location, width, height, fieldofview, heading, pitch) {
+    const key = this.apiKey.value;
+    const cacheKey = `location=${location}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}`;
     const queryOpts = {
         path: '/metadata',
-        queryString: `?location=${location}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}&key=${key}`
+        queryString: `?${cacheKey}&key=${key}`,
+        cacheKey
     };
     const parserFn = resp => resp; // explicitly do nothing
     return this._sendStruct(queryOpts, parserFn);
@@ -120,9 +125,12 @@ GoogleStreetView.getInfoFromAddress = function(location, width, height, fieldofv
  * @returns {Boolean}
  */
 GoogleStreetView.isAvailable = function(latitude, longitude, fieldofview, heading, pitch) {
+    const key = this.apiKey.value;
+    const cacheKey = `location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}`;
     const queryOpts = {
         path: '/metadata',
-        queryString: `?location=${latitude},${longitude}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}&key=${key}`
+        queryString: `?${cacheKey}&key=${key}`,
+        cacheKey
     };
     const parserFn = resp => resp.status === 'OK';
     return this._sendStruct(queryOpts, parserFn);
@@ -137,9 +145,12 @@ GoogleStreetView.isAvailable = function(latitude, longitude, fieldofview, headin
  * @returns {Boolean}
  */
 GoogleStreetView.isAvailableFromAddress = function(location, fieldofview, heading, pitch) {
+    const key = this.apiKey.value;
+    const cacheKey = `location=${location}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}`;
     const queryOpts = {
         path: '/metadata',
-        queryString: `?location=${location}&fov=${fieldofview}&heading=${heading}&pitch=${pitch}&key=${key}`
+        queryString: `?${cacheKey}&key=${key}`,
+        cacheKey
     };
     const parserFn = resp => resp.status === 'OK';
     return this._sendStruct(queryOpts, parserFn);

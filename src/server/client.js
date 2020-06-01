@@ -16,6 +16,7 @@ var counter = 0,
 
 let clientCounter = 0;
 
+const _ = require('lodash');
 const assert = require('assert');
 const Messages = require('./storage/messages');
 const ProjectActions = require('./storage/project-actions');
@@ -302,7 +303,7 @@ class Client {
 
     getPublicId () {
         // Look up the current project, role names
-        return Projects.getRawProjectById(this.projectId)
+        return Projects.getProjectMetadataById(this.projectId)
             .then(metadata => {
                 if (!metadata.roles[this.roleId]) {
                     throw new Error('Role not found');
@@ -366,7 +367,7 @@ class Client {
 
     setState(projectId, roleId, username) {
         this.projectId = projectId && projectId.toString();
-        this.roleId = roleId;
+        this.roleId = roleId || this.roleId;
         this.username = username || this.uuid;
         this.loggedIn = Utils.isSocketUuid(this.username);
     }
@@ -477,7 +478,7 @@ Client.MessageHandlers = {
 
     'permission-elevation-request': function(msg) {
         const {projectId} = msg;
-        return Projects.getRawProjectById(this.projectId)
+        return Projects.getProjectMetadataById(this.projectId)
             .then(metadata => {
                 const {owner} = metadata;
                 const sockets = NetworkTopology.getSocketsAtProject(projectId);
@@ -536,11 +537,8 @@ Client.MessageHandlers = {
             this._logger.trace(`Exporting project for ${projectId}` +
                 ` to ${this.username}`);
 
-            this.send({
-                type: 'export-room',
-                content: xml,
-                action: msg.action
-            });
+            _.extend(msg, {content: xml});
+            this.send(msg);
         }
     },
 

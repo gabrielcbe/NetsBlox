@@ -4,21 +4,18 @@
  * @service
  * @category Science
  */
-
-// This will use the AirNowAPI to get air quality given a latitude and longitude.
-// If we start to run out of API requests, they have the entire dataset available
-// for download online.
 'use strict';
 
 const ApiConsumer = require('../utils/api-consumer');
+const {AirNowKey} = require('../utils/api-key');
 
 const logger = require('../utils/logger')('air-quality'),
-    API_KEY = process.env.AIR_NOW_KEY,
     path = require('path'),
     fs = require('fs'),
     geolib = require('geolib');
 
 const AirConsumer = new ApiConsumer('AirQuality', 'http://www.airnowapi.org/aq/observation/zipCode/current/',{cache: {ttl: 30*60}});
+ApiConsumer.setRequiredApiKey(AirConsumer, AirNowKey);
 
 var reportingLocations = (function() {  // Parse csv
     var locationPath = path.join(__dirname, 'air-reporting-locations.csv'),
@@ -39,10 +36,6 @@ var reportingLocations = (function() {  // Parse csv
             };
         });
 })();
-
-const queryString = function(zipCode) {
-    return `?format=application/json&API_KEY=${API_KEY}&zipCode=${zipCode}`;
-};
 
 /**
  * Get ZIP code of closest reporting location for coordinates
@@ -79,16 +72,13 @@ AirConsumer.qualityIndex = function(latitude, longitude) {
  * @returns {Number} AQI of closest station
  */
 AirConsumer.qualityIndexByZipCode = function(zipCode) {
+    const queryString = `?format=application/json&API_KEY=${this.apiKey.value}&zipCode=${zipCode}`;
+    const cacheKey = {zipCode};
 
     logger.trace(`Requesting air quality at ${zipCode}`);
 
-    return this._sendAnswer({queryString: queryString(zipCode)}, '.AQI')
-        .catch(err => {
-
-            logger.error('Could not get air quality index: ', err);
-
-            throw err;
-        }).then((r) => (r.length > 0? r[0]: -1));
+    return this._sendAnswer({queryString, cacheKey}, '.AQI')
+        .then((r) => (r.length > 0? r[0]: -1));
 };
 
 /**

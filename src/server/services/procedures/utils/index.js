@@ -75,7 +75,7 @@ const encodeQueryData = (query, encode=true) => {
 
 const getRoleNames = (projectId, roleIds) => {
     roleIds = roleIds.filter(id => !!id);
-    return Projects.getRawProjectById(projectId)
+    return Projects.getProjectMetadataById(projectId)
         .then(metadata => {
             if (!metadata) {
                 throw new Error('Project not found');
@@ -96,12 +96,24 @@ const getRoleName = (projectId, roleId) => {
 };
 
 const getRoleIds = async projectId => {
-    const metadata = await Projects.getRawProjectById(projectId);
+    const metadata = await Projects.getProjectMetadataById(projectId);
     return Object.keys(metadata.roles);
 };
 
 const isValidServiceName = name => {
     return /^[a-z0-9-]+$/i.test(name);
+};
+
+const setRequiredApiKey = (service, apiKey) => {
+    service.apiKey = apiKey;
+    service.isSupported = function() {
+        if(!this.apiKey.value){
+            /* eslint-disable no-console*/
+            console.error(this.apiKey.envVar + ' is missing.');
+            /* eslint-enable no-console*/
+        }
+        return !!this.apiKey.value;
+    };
 };
 
 module.exports = {
@@ -113,4 +125,5 @@ module.exports = {
     collectStream,
     jsonToSnapList,
     isValidServiceName,
+    setRequiredApiKey,
 };

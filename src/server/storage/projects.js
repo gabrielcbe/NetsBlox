@@ -11,21 +11,6 @@
     const MAX_MSG_RECORD_DURATION = 1000 * 60 * 10;  // 10 min
     const memoize = require('memoizee');
 
-    const storeRoleBlob = function(role) {
-        const content = _.clone(role);
-        return Q.all([
-            blob.store(content.SourceCode),
-            blob.store(content.Media)
-        ])
-            .then(hashes => {
-                const [srcHash, mediaHash] = hashes;
-
-                content.SourceCode = srcHash;
-                content.Media = mediaHash;
-                return content;
-            });
-    };
-
     const loadRoleContent = function(role) {
         return Q.all([
             blob.get(role.SourceCode),
@@ -100,7 +85,7 @@
             return this._id.toString();
         }
 
-        getRawProject(cache=false) {
+        getProjectMetadata(cache=false) {
             return findOne(this.getStorageId(), cache)
                 .then(project => {
                     if (!project) {
@@ -120,10 +105,6 @@
         }
 
         ///////////////////////// Roles /////////////////////////
-        getNewRoleId(name) {
-            return `${name}-${Date.now()}`;
-        }
-
         setRawRole(name, content) {
             if (this.isDeleted()) return Promise.reject('cannot setRawRole: project has been deleted!');
 
@@ -141,14 +122,14 @@
 
         setRoleById(id, content) {
             assert(content.ProjectName);
-            this.addRoleMetadata(content);
-            return storeRoleBlob(content)
+            ProjectStorage.addRoleMetadata(content);
+            return ProjectStorage.uploadRoleToBlob(content)
                 .then(content => this.setRawRoleById(id, content));
         }
 
         addSetRoleToQuery(id, content, query) {
             query = query || {$set: {}};
-            id = id || this.getNewRoleId(content.ProjectName);
+            id = id || ProjectStorage.getNewRoleId(content.ProjectName);
             query.$set[`roles.${id}`] = content;
 
             return query;
@@ -160,12 +141,12 @@
         }
 
         getRoleIds() {
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => Object.keys(project.roles || {}));
         }
 
         getRoleIdsFor(names) {
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => {
                     let remainingIds = Object.keys(project.roles);
                     let ids = names.map(name => {
@@ -192,17 +173,9 @@
             this._logger.trace(`updating role: ${name} in ${this.owner}/${this.name}`);
             content.ProjectName = name;
 
-            this.addRoleMetadata(content);
-            return storeRoleBlob(content)
+            ProjectStorage.addRoleMetadata(content);
+            return ProjectStorage.uploadRoleToBlob(content)
                 .then(content => this.setRawRole(name, content));
-        }
-
-        // Parse additional important fields
-        addRoleMetadata(content) {
-            content.Thumbnail = utils.xml.thumbnail(content.SourceCode);
-            content.Notes = utils.xml.notes(content.SourceCode);
-            content.Updated = new Date();
-            return content;
         }
 
         setRoles(roles) {
@@ -211,7 +184,7 @@
 
             const query = {$set: {}};
             let rawRoles = null;
-            return Q.all(roles.map(role => storeRoleBlob(role)))
+            return Q.all(roles.map(role => ProjectStorage.uploadRoleToBlob(role)))
                 .then(roles => {
                     if (this.isDeleted()) return;
                     rawRoles = roles;
@@ -227,7 +200,7 @@
         }
 
         getRawRoleById(id) {
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => {
                     const role = project.roles[id];
                     role.ID = id;
@@ -251,7 +224,7 @@
         }
 
         getRawRoles() {
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => {
                     return Object.keys(project.roles)
                         .map(id => {
@@ -266,43 +239,26 @@
                 .then(roles => Q.all(roles.map(loadRoleContent)));
         }
 
-        getCopyFor(user) {
-            const owner = user.username;
-            return this.getRawProject()
-                .then(raw => {
+        async getCopyFor(owner, overrides={}) {
+            const metadata = await this.getProjectMetadata();
+            metadata.originTime = Date.now();
+            metadata.owner = owner;
+            metadata.collaborators = [];
+            metadata.transient = true;
+            for (let key in overrides) {
+                metadata[key] = overrides[key];
+            }
 
-                    return user.getNewName(raw.name)
-                        .then(name => {
-                            raw.originTime = Date.now();
-                            raw.name = name;
-                            raw.owner = owner;
-                            raw.collaborators = [];
-                            raw.transient = true;
-
-                            const project = new Project({
-                                logger: this._logger,
-                                db: this._db,
-                                data: raw
-                            });
-                            return project.create(raw.roles);
-                        });
-                });
+            const project = new Project({
+                logger: this._logger,
+                db: this._db,
+                data: metadata
+            });
+            return project.create(metadata.roles);
         }
 
-        getCopy() {
-            return this.getRawProject()
-                .then(metadata => {
-                    metadata.originTime = Date.now();
-                    metadata.collaborators = [];
-                    metadata.transient = true;
-
-                    const project = new Project({
-                        logger: this._logger,
-                        db: this._db,
-                        data: metadata
-                    });
-                    return project.create(metadata.roles);
-                });
+        getCopy(overrides) {
+            return this.getCopyFor(this.owner, overrides);
         }
 
         getNewRoleName(basename) {
@@ -374,24 +330,24 @@
         }
 
         getRoleNames () {
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => Object.keys(project.roles).map(id => project.roles[id].ProjectName));
         }
 
         ///////////////////////// End Roles /////////////////////////
-        create(roleDict={}) {  // initial save
+        create(roleDict) {  // initial save
             const data = {
                 name: this.name,
                 owner: this.owner,
-                transient: true,
+                transient: this.transient,
                 lastUpdatedAt: new Date(),
                 originTime: this.originTime,
                 collaborators: this.collaborators,
                 deleteAt: null,
-                roles: roleDict
+                roles: roleDict || this.roles || {}
             };
 
-            return this._db.save(data)
+            return this._db.insert(data)
                 .then(result => {
                     const id = result.ops[0]._id;
                     this._id = id;
@@ -423,7 +379,7 @@
         }
 
         archive() {  // Archive a copy of the current project
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => {
                     project.projectId = project._id;
                     delete project._id;
@@ -435,7 +391,7 @@
         }
 
         isTransient() {
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => !!project.transient);
         }
 
@@ -449,7 +405,7 @@
             if (this.isDeleted()) return Promise.reject('cannot setName: project has been deleted!');
             const query = {$set: {name: name}};
             this._logger.trace(`renaming project ${this.name}=>${name} for ${this.owner}`);
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => {
                     const isPublic = project.Public === true;
                     if (isPublic) {
@@ -514,7 +470,7 @@
 
         //////////////// Recording messages (network traces) ////////////////
         getRecordStartTimes() {
-            return this.getRawProject()
+            return this.getProjectMetadata()
                 .then(project => project.recordMessagesAfter || []);
         }
 
@@ -524,7 +480,7 @@
         }
 
         isRecordingMessages(cache=false) {
-            return this.getRawProject(cache)
+            return this.getProjectMetadata(cache)
                 .then(project => project.recordMessagesAfter || [])
                 .then(records => Math.max.apply(null, records.map(record => record.time)))
                 .then( time => (Date.now() - time) < MAX_MSG_RECORD_DURATION);
@@ -610,21 +566,25 @@
         ProjectArchives = db.collection('project-archives');
     };
 
+    ProjectStorage.getCollection = function() {
+        return this._collection;
+    };
+
     ProjectStorage._findOne = function(query, cache) {
         return findOne(query, cache);
     };
 
-    ProjectStorage.getRawProject = function (username, projectName, cache=false) {
+    ProjectStorage.getProjectMetadata = function (username, projectName, cache=false) {
         return findOne({owner: username, name: projectName}, cache);
     };
 
     ProjectStorage.getProjectId = function(owner, name) {
-        return ProjectStorage.getRawProject(owner, name)
+        return ProjectStorage.getProjectMetadata(owner, name)
             .then(project => project && project._id.toString());
     };
 
     ProjectStorage.get = function (username, projectName) {
-        return ProjectStorage.getRawProject(username, projectName)
+        return ProjectStorage.getProjectMetadata(username, projectName)
             .then(data => {
                 var params = {
                     logger: logger,
@@ -636,7 +596,7 @@
     };
 
     ProjectStorage.getById = function (id) {
-        return ProjectStorage.getRawProjectById(id)
+        return ProjectStorage.getProjectMetadataById(id)
             .then(data => {
                 var params = {
                     logger: logger,
@@ -647,7 +607,7 @@
             });
     };
 
-    ProjectStorage.getRawProjectById = function (id, opts) {
+    ProjectStorage.getProjectMetadataById = function (id, opts) {
         const defaultOpts = {unmarkForDeletion: false, cache: false};
         opts = {...defaultOpts, ...opts};
         try {
@@ -775,11 +735,15 @@
         return deferred.promise;
     };
 
+    const PROJECT_DEFAULTS = {
+        name: 'untitled',
+        collaborators: [],
+        roles: {},
+        transient: true
+    };
     ProjectStorage.new = function(data) {
-        data.roles = data.roles || {};
         data.originTime = data.originTime || new Date();
-        data.collaborators = data.collaborators || [];
-        data.name = data.name || 'untitled';
+        data = _.extend({}, PROJECT_DEFAULTS, data);
 
         const project = new Project({
             logger: logger,
@@ -794,6 +758,14 @@
         return collection.deleteOne({_id: ObjectId(projectId)});
     };
 
+    ProjectStorage.update = function(projectId, query) {
+        return this.updateCustom({_id: ObjectId(projectId)}, query);
+    };
+
+    ProjectStorage.updateCustom = function(selector, query) {
+        return collection.updateOne(selector, query);
+    };
+
     const DELETE_DELAY = 60*1000;
     ProjectStorage.markForDeletion = async function(projectId) {
         // Record that the project is now empty. This will be used to mark it for deletion
@@ -804,5 +776,29 @@
             $set: {deleteAt}
         });
     };
+
+    ProjectStorage.addRoleMetadata = content => {
+        content.Thumbnail = utils.xml.thumbnail(content.SourceCode);
+        content.Notes = utils.xml.notes(content.SourceCode);
+        content.Updated = new Date();
+        return content;
+    };
+
+    ProjectStorage.getNewRoleId = name => {
+        return `${name}-${Date.now()}`;
+    };
+
+    ProjectStorage.uploadRoleToBlob = async function(role) {
+        const content = _.clone(role);
+        const [srcHash, mediaHash] = await Promise.all([
+            blob.store(content.SourceCode),
+            blob.store(content.Media)
+        ]);
+
+        content.SourceCode = srcHash;
+        content.Media = mediaHash;
+        return content;
+    };
+
 
 })(exports);

@@ -5,20 +5,16 @@
  * Terms of use: https://twitter.com/en/tos
  * @service
  */
-// This will use the Twitter API to allow the client to execute certain Twitter functions within NetsBlox
 
 'use strict';
+const {TwitterKey} = require('../utils/api-key');
 const ApiConsumer = require('../utils/api-consumer');
-var KEY = process.env.TWITTER_BEARER_TOKEN;
-
-// make sure key starts with bearer
-if (KEY && !KEY.startsWith('Bearer ')) KEY = 'Bearer ' + KEY;
-
 const TwitterConsumer = new ApiConsumer('Twitter', 'https://api.twitter.com/1.1/', {
     cache: {
         ttl: 30
     }
 });
+ApiConsumer.setRequiredApiKey(TwitterConsumer, TwitterKey);
 
 function rateCheck(response, res) {
     if (response.statusCode == 429) {
@@ -27,15 +23,6 @@ function rateCheck(response, res) {
     }
     return false;
 }
-
-TwitterConsumer.isSupported = () => {
-    if (!KEY) {
-        /* eslint-disable no-console*/
-        console.error('TWITTER_BEARER_TOKEN is missing.');
-        /* eslint-enable no-console*/
-    }
-    return KEY;
-};
 
 /**
  * Get tweets from a user
@@ -48,9 +35,10 @@ TwitterConsumer.recentTweets = function (screenName, count) {
         path: 'statuses/user_timeline.json',
         queryString: `?screen_name=${screenName}&count=${count}`,
         headers: {
-            Authorization: KEY,
+            Authorization: this.apiKey.value,
             gzip: 'true'
-        }
+        },
+        cacheKey: {method: 'recentTweets', screenName, count},
     }).then(res => {
         return res.map(tweet => `( ${tweet.retweet_count} RTs, ${tweet.favorite_count} Favs) ${tweet.text}`);
     })
@@ -72,9 +60,10 @@ TwitterConsumer.followers = function (screenName) {
         path: 'users/show.json',
         queryString: `?screen_name=${screenName}`,
         headers: {
-            Authorization: KEY,
+            Authorization: this.apiKey.value,
             gzip: 'true'
-        }
+        },
+        cacheKey: {method: 'followers', screenName},
     }, '.followers_count').catch(err => {
         if (rateCheck(err, this.response)) {
             return;
@@ -93,9 +82,10 @@ TwitterConsumer.tweets = function (screenName) {
         path: 'users/show.json',
         queryString: `?screen_name=${screenName}`,
         headers: {
-            Authorization: KEY,
+            Authorization: this.apiKey.value,
             gzip: 'true'
-        }
+        },
+        cacheKey: {method: 'tweets', screenName},
     }, '.statuses_count').catch(err => {
         if (rateCheck(err, this.response)) {
             return;
@@ -117,9 +107,10 @@ TwitterConsumer.search = function (keyword, count) {
         path: 'search/tweets.json',
         queryString: `?q=${encodeURI(keyword)}&count=${count}`,
         headers: {
-            Authorization: KEY,
+            Authorization: this.apiKey.value,
             gzip: 'true'
-        }
+        },
+        cacheKey: {method: 'search', keyword, count},
     }).then(res => {
         return res.statuses.map(tweet => `( ${tweet.retweet_count} RTs, ${tweet.favorite_count} Favs) @${tweet.user.screen_name}: ${tweet.text}`);
     })
@@ -145,9 +136,10 @@ TwitterConsumer.tweetsPerDay = function (screenName) {
         path: 'statuses/user_timeline.json',
         queryString: `?screen_name=${screenName}&count=200`,
         headers: {
-            Authorization: KEY,
+            Authorization: this.apiKey.value,
             gzip: 'true'
-        }
+        },
+        cacheKey: {method: 'tweetsPerDay', screenName},
     }).then(res => {
         var oldestDate = new Date(res[res.length - 1].created_at);
         var diffDays = Math.round(Math.abs((oldestDate.getTime() - dateToday.getTime()) / (oneDay)));
@@ -171,9 +163,10 @@ TwitterConsumer.favorites = function (screenName, count) {
         path: 'favorites/list.json',
         queryString: `?screen_name=${screenName}&count=${count}`,
         headers: {
-            Authorization: KEY,
+            Authorization: this.apiKey.value,
             gzip: 'true'
-        }
+        },
+        cacheKey: {method: 'favorites', screenName, count},
     }).then(res => {
         return res.map(fav => `@${fav.user.screen_name}: ${fav.text}`);
     })
@@ -196,9 +189,10 @@ TwitterConsumer.favoritesCount = function (screenName) {
         path: 'users/show.json',
         queryString: `?screen_name=${screenName}`,
         headers: {
-            Authorization: KEY,
+            Authorization: this.apiKey.value,
             gzip: 'true'
-        }
+        },
+        cacheKey: {method: 'favoritesCount', screenName},
     }, '.favourites_count').catch(err => {
         if (rateCheck(err, this.response)) {
             return;

@@ -137,7 +137,7 @@ types.Function = async (blockXml, ctx) => {
     let roleNames = [''];
 
     if (ctx) {
-        const metadata = await Projects.getRawProjectById(ctx.caller.projectId);
+        const metadata = await Projects.getProjectMetadataById(ctx.caller.projectId);
         if (metadata) {
             roleNames = Object.values(metadata.roles)
                 .map(role => role.ProjectName);
@@ -152,14 +152,15 @@ types.Function = async (blockXml, ctx) => {
         project.roleName = roleName;
         project.roleNames = roleNames;
     };
-    env.doYield = env.doYield.bind(null, Date.now());
     const fn = await factory(env);
+    const {doYield} = env;
     return function() {
-        env.doYield = env.doYield.bind(null, Date.now());
+        env.doYield = doYield.bind(null, Date.now());
         return fn.apply(this, arguments);
     };
 };
 
+types.String = input => input.toString();
 types.Any = input => input;
 
 module.exports = {

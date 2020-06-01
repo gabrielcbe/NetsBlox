@@ -8,6 +8,7 @@
     class Group extends Data {
 
         constructor(data) {
+            data.servicesHosts = data.servicesHosts || [];
             super(collection, data);
             this._logger = logger.fork(data.name);
         }
@@ -23,8 +24,9 @@
 
         data() {
             return {
+                _id: this._id,
                 name: this.name,
-                _id: this._id
+                servicesHosts: this.servicesHosts,
             };
         }
 
@@ -106,7 +108,7 @@
     GroupStore.get = async function(id) {
         logger.trace(`getting group ${id}`);
         if (typeof id === 'string') id = ObjectId(id);
-        let data =  await Q(collection.findOne({_id: id}));
+        let data = await Q(collection.findOne({_id: id}));
         if (data) {
             return new Group(data);
         } else {
@@ -129,5 +131,14 @@
         let groupsArr = await Q(collection.find({}).toArray());
         return groupsArr.map(group => new Group(group));
     };
+
+    GroupStore.update = function(groupId, query) {
+        return this.updateCustom({_id: ObjectId(groupId)}, query);
+    };
+
+    GroupStore.updateCustom = function(selector, query) {
+        return collection.updateOne(selector, query);
+    };
+
 
 })(exports);

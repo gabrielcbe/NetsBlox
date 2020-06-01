@@ -5,6 +5,7 @@ const express = require('express');
 const middleware = require('../routes/middleware');
 const Storage = require('../storage/storage');
 const ServiceStorage = require('./storage');
+const ApiKeys = require('./api-keys');
 const Logger = require('../logger');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
@@ -25,23 +26,25 @@ async function listen(port) {
     // CORS
     app.use(function(req, res, next) {
         res.header('Access-Control-Allow-Origin', req.get('origin'));
-        res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, PATCH');
         res.header('Access-Control-Allow-Credentials', true);
         res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, SESSIONGLUE');
         res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, PUT, PATCH, DELETE');
         next();
     });
-
+    app.options('*', (req, res) => res.sendStatus(204));
 
     await Storage.connect();
     await ServiceStorage.init(logger, Storage._db);
+    await ApiKeys.init(Storage._db, logger);
     middleware.init({_logger: logger});
     await ServicesAPI.initialize();
-    app.use(
-        '/',
-        (req, res, next) => middleware.tryLogIn(req, res, next, true),
-        ServicesAPI.router
-    );
+    app.use((req, res, next) => {
+        res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS, PUT, PATCH, DELETE');
+        next();
+    });
+    app.use((req, res, next) => middleware.tryLogIn(req, res, next, true));
+    app.use('/keys', middleware.isLoggedIn, ApiKeys.router());
+    app.use('/', ServicesAPI.router());
     const RPC_ROOT = path.join(__dirname, 'libs');
     const RPC_INDEX = fs.readFileSync(path.join(RPC_ROOT, 'LIBS'), 'utf8')
         .split('\n')

@@ -3,10 +3,10 @@ const Q = require('q');
 const RemoteClient = require('./remote-client');
 const Services = require('./services-worker');
 const Logger = require('../logger');
+const ApiKeys = require('./api-keys');
 
 class ServicesAPI {
     constructor() {
-        this.router = this.createRouter();
         this.loading = Q.defer();
 
         this.logger = new Logger('netsblox:services');
@@ -26,13 +26,15 @@ class ServicesAPI {
     }
 
     getServiceNameFromDeprecated(name) {
-        return Object.entries(this.services.compatibility)
+        const deprecatedService = Object.entries(this.services.compatibility)
             .find(pair => {
                 const [validName, info] = pair;
                 if (info.path && info.path.toLowerCase() === name) {
                     return validName;
                 }
-            }) || [null];
+            });
+
+        return deprecatedService ? deprecatedService[0] : null;
     }
 
     getValidServiceName(name) {
@@ -69,7 +71,7 @@ class ServicesAPI {
         return null;
     }
 
-    createRouter() {
+    router() {
         const router = express.Router({mergeParams: true});
 
         router.route('/').get((req, res) => {
@@ -97,8 +99,9 @@ class ServicesAPI {
 
         router.route('/:serviceName/:rpcName')
             .post((req, res) => {
-                if (this.validateRPCRequest(req, res)) {
-                    const {serviceName, rpcName} = req.params;
+                const serviceName = this.getValidServiceName(req.params.serviceName);
+                if (this.validateRPCRequest(serviceName, req, res)) {
+                    const {rpcName} = req.params;
                     return this.invokeRPC(serviceName, rpcName, req, res);
                 }
             });
@@ -116,8 +119,8 @@ class ServicesAPI {
         return service.rpcs[rpcName].args.map(arg => arg.name);
     }
 
-    validateRPCRequest(req, res) {
-        const {serviceName, rpcName} = req.params;
+    validateRPCRequest(serviceName, req, res) {
+        const {rpcName} = req.params;
         const {projectId, uuid} = req.query;
 
         if(!uuid || !projectId) {
@@ -133,30 +136,38 @@ class ServicesAPI {
         return false;
     }
 
-    invokeRPC(serviceName, rpcName, req, res) {
+    async invokeRPC(serviceName, rpcName, req, res) {
         const {projectId, roleId, uuid} = req.query;
-        const expectedArgs = this.getArgumentNames(serviceName, rpcName);
+        const {username} = req.session;
         this.logger.info(`Received request to ${serviceName} for ${rpcName} (from ${uuid})`);
 
         const ctx = {};
         ctx.response = res;
         ctx.request = req;
         ctx.caller = {
-            username: req.session.username,
+            username,
             projectId,
             roleId,
             clientId: uuid
         };
+        const apiKey = this.services.getApiKey(serviceName);
+        if (apiKey) {
+            ctx.apiKey = await ApiKeys.get(username, apiKey);
+        }
         ctx.socket = new RemoteClient(projectId, roleId, uuid);
 
-        // Get the arguments
+        const args = this.getArguments(serviceName, rpcName, req);
+
+        return this.services.invoke(ctx, serviceName, rpcName, args);
+    }
+
+    getArguments(serviceName, rpcName, req) {
+        const expectedArgs = this.getArgumentNames(serviceName, rpcName);
         const oldFieldNameFor = this.getDeprecatedArgName(serviceName, rpcName) || {};
-        const args = expectedArgs.map(argName => {
+        return expectedArgs.map(argName => {
             const oldName = oldFieldNameFor[argName];
             return req.body.hasOwnProperty(argName) ? req.body[argName] : req.body[oldName];
         });
-
-        return this.services.invoke(ctx, serviceName, rpcName, args);
     }
 }
 

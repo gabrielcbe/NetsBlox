@@ -1,7 +1,7 @@
 describe('googlemaps', function() {
     const utils = require('../../../../assets/utils');
     var Googlemaps = utils.reqSrc('services/procedures/google-maps/google-maps'),
-        RPCMock = require('../../../../assets/mock-rpc'),
+        RPCMock = require('../../../../assets/mock-service'),
         assert = require('assert'),
         googlemaps = new RPCMock(Googlemaps);
 
@@ -60,41 +60,26 @@ describe('googlemaps', function() {
         };
 
         it('should handle wraparound at map boundaries', function(){
-            let coords = googlemaps._rpc._coordsAt(-170, 90, map);
+            let coords = googlemaps.unwrap()._coordsAt(-170, 90, map);
             assert(coords.lon > -180 && coords.lon < 180);
             map.center.lon = +150;
-            coords = googlemaps._rpc._coordsAt(170, 90, map);
+            coords = googlemaps.unwrap()._coordsAt(170, 90, map);
             assert(coords.lon > -180 && coords.lon < 180);
         });
 
     });
 
-    describe('getGoogleParams', function() {
-
-        const opts = {
-            center: {
-                lat: 36.2645738345627,
-                lon: -82.5432276734527,
-            },
-            width: (640 / 1),
-            height: (480 / 1),
-            zoom: 15,
-            scale: 1,
-            mapType: 'roadmap'
-        };
+    describe('toPrecision', function() {
+        const latitude = 36.2645738345627;
 
         it('should round coordinates properly', function() {
-            const params = googlemaps._rpc._getGoogleParams(opts, 4);
-            const outCoords = params.match(/center=(.*)&key/)[1];
-            const expectedCoords = '36.2646,-82.5432';
-            assert.equal(outCoords, expectedCoords);
+            const rounded = googlemaps.unwrap()._toPrecision(latitude, 4);
+            assert.equal(rounded, 36.2646);
         });
 
         it('should not round coordinates (large precision)', function() {
-            const params = googlemaps._rpc._getGoogleParams(opts, 13);
-            const outCoords = params.match(/center=(.*)&key/)[1];
-            const expectedCoords = '36.2645738345627,-82.5432276734527';
-            assert.equal(outCoords, expectedCoords);
+            const rounded = googlemaps.unwrap()._toPrecision(latitude, 13);
+            assert.equal(rounded, 36.2645738345627);
         });
 
     });

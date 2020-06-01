@@ -11,12 +11,13 @@
 
 const logger = require('../utils/logger')('weather');
 const tuc = require('temp-units-conv');
+const {OpenWeatherMapKey} = require('../utils/api-key');
 const ApiConsumer = require('../utils/api-consumer');
-const API_KEY = process.env.OPEN_WEATHER_MAP_KEY;
 const MAX_DISTANCE = +process.env.WEATHER_MAX_DISTANCE || Infinity;  // miles
 const geolib = require('geolib');
 
 const weather = new ApiConsumer('Weather', 'http://api.openweathermap.org/data/2.5/weather', {cache: {ttl: 60}});
+ApiConsumer.setRequiredApiKey(weather, OpenWeatherMapKey);
 
 const isWithinMaxDistance = function(result, lat, lng) {
     var distance = geolib.getDistance(
@@ -31,8 +32,13 @@ const isWithinMaxDistance = function(result, lat, lng) {
     return distance < MAX_DISTANCE;
 };
 
-const queryString = function(latitude, longitude) {
-    return `APPID=${API_KEY}&lat=${latitude}&lon=${longitude}`;
+weather._getWeatherData = function(latitude, longitude) {
+    const cacheKey = `lat=${latitude}&lon=${longitude}`;
+    const queryOptions = {
+        queryString: `APPID=${this.apiKey.value}&${cacheKey}`,
+        cacheKey,
+    };
+    return this._requestData(queryOptions);
 };
 
 /**
@@ -41,7 +47,7 @@ const queryString = function(latitude, longitude) {
  * @param {Longitude} longitude
  */
 weather.temperature = function(latitude, longitude){
-    return this._requestData({queryString: queryString(latitude, longitude)})
+    return this._getWeatherData(latitude, longitude)
         .then(body => {
             var temp = 'unknown';
             if (body.main && isWithinMaxDistance(body, latitude, longitude)) {
@@ -69,7 +75,7 @@ weather.temp = function(latitude, longitude) {
  * @param {Longitude} longitude
  */
 weather.humidity = function(latitude, longitude){
-    return this._requestData({queryString: queryString(latitude, longitude)})
+    return this._getWeatherData(latitude, longitude)
         .then(body => {
             var humidity = 'unknown';
             if (isWithinMaxDistance(body, latitude, longitude)) {
@@ -85,7 +91,7 @@ weather.humidity = function(latitude, longitude){
  * @param {Longitude} longitude
  */
 weather.description = function(latitude, longitude){
-    return this._requestData({queryString: queryString(latitude, longitude)})
+    return this._getWeatherData(latitude, longitude)
         .then(body => {
             var description = 'unknown';
             if (isWithinMaxDistance(body, latitude, longitude)) {
@@ -101,7 +107,7 @@ weather.description = function(latitude, longitude){
  * @param {Longitude} longitude
  */
 weather.windSpeed = function(latitude, longitude){
-    return this._requestData({queryString: queryString(latitude, longitude)})
+    return this._getWeatherData(latitude, longitude)
         .then(body => {
             var speed = 'unknown';
             if (isWithinMaxDistance(body, latitude, longitude)) {
@@ -117,7 +123,7 @@ weather.windSpeed = function(latitude, longitude){
  * @param {Longitude} longitude
  */
 weather.windAngle = function(latitude, longitude){
-    return this._requestData({queryString: queryString(latitude, longitude)})
+    return this._getWeatherData(latitude, longitude)
         .then(body => {
             var deg = 'unknown';
             if (isWithinMaxDistance(body, latitude, longitude)) {
@@ -133,7 +139,7 @@ weather.windAngle = function(latitude, longitude){
  * @param {Longitude} longitude
  */
 weather.icon = function(latitude, longitude){
-    return this._requestData({queryString: queryString(latitude, longitude)})
+    return this._getWeatherData(latitude, longitude)
         .then(body => {
             // Return sunny if unknown
             var iconName = '01d.png';

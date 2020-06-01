@@ -51,5 +51,17 @@ module.exports = [
         owner: 'brian',
         name: 'MultiRoles',
         roles: ['r1', 'r2', 'r3']
+    },
+    {
+        owner: 'hamid',
+        name: 'SharedProject',
+        roles: ['r1', 'r2'],
+        collaborators: ['brian']
+    },
+    {
+        owner: 'brian',
+        name: 'SharedProject',
+        roles: ['r1', 'r2'],
+        collaborators: ['test']
     }
 ].map(addDefaults);
