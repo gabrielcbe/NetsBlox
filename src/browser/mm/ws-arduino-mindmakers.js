@@ -126,8 +126,8 @@ function statusConnectionArduino(urlConexaoArduinoArg) {
       analog_inputs_arduino.fill(-1);
       pin_modes_arduino.fill(-1);
       wait_open_arduino = [];
-      if (alerted === false) {
-        alerted = true;
+      if (alerted_arduino === false) {
+        alerted_arduino = true;
         alert("Conexão Arduino fechada.");
       }
       clienteConectadoArduino = false;

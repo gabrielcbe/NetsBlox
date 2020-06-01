@@ -126,8 +126,8 @@ function statusConnectionRaspberryPi(urlConexaoRaspberryPiArg) {
       analog_inputs.fill(-1);
       pin_modes_rpi.fill(-1);
       wait_open_rpi = [];
-      if (alerted === false) {
-        alerted = true;
+      if (alerted_rpi === false) {
+        alerted_rpi = true;
         alert("GPIO Disconnected");
       }
       clienteConectadoRaspberryPi = false;
