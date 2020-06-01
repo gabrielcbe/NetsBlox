@@ -122,8 +122,8 @@ function statusConnectionRaspberryPi(urlConexaoRaspberryPiArg) {
     };
 
     clientRaspberryPi.onclose = function (e) {
-      digital_inputs.fill(-1);
-      analog_inputs.fill(-1);
+      digital_inputs_rpi.fill(-1);
+      analog_inputs_rpi.fill(-1);
       pin_modes_rpi.fill(-1);
       wait_open_rpi = [];
       if (alerted_rpi === false) {
