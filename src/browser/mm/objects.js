@@ -1145,7 +1145,6 @@ SpriteMorph.prototype.ArduinoSonar_read = function (trigger_pin, echo_pin) {
     ];
     wait_open_arduino.push(callbackEntry);
   } else {
-    pin = parseInt(pin, 10);
     trigger_pin = parseInt(trigger_pin, 10);
     sonar_report_pin_arduino = trigger_pin;
 
