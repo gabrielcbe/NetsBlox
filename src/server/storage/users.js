@@ -61,7 +61,17 @@
 
         async getGroup() {
             if (this.groupId) {
-                return await Groups.get(this.groupId);
+                let res = null;
+                try{
+                    res = await Groups.get(this.groupId);
+                }catch(e){
+                    this._logger.error(`invalid group (${this.groupId}) from user  ${this.username}`);
+                    //try to create new grou?
+                    // let newGroup = await this.setGroupId(this.groupId);
+                    // console.log('resposta aqui async newGroup(this.groupId): ',newGroup);
+                }
+                return res;
+                // return await Groups.get(this.groupId);
             }
             return null;
         }
