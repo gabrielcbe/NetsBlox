@@ -22,6 +22,9 @@ while (match) {
 const RESERVED_FILE = 'main.js';
 srcFiles = srcFiles.filter(f => f !== RESERVED_FILE);
 
+// //Avoid mm/ files from being minified
+srcFiles = srcFiles.filter(f => !f.startsWith('mm/'));
+
 if (!isDevEnv) console.log('concatting and minifying:', srcFiles);
 
 srcFiles = srcFiles.map(file => path.join(srcPath, file));
