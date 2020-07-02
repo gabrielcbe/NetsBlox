@@ -6,8 +6,9 @@ node_modules/
 coverage/
 scratch/
 .env
-src/client/dist/
+src/browser/dist/
 .idea/
 blob-storage
 test-blob-storage
 cache
+src/server/certificado/
