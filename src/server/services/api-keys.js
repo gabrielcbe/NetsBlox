@@ -50,14 +50,14 @@ class APIKeys {
     async getGroupKey(username, provider) {
         const user = await Users.get(username);
         let group = null;
-        if(user)
+        if(user){
             try {
                 group = await user.getGroup();
             }catch(e){
                 this._logger.error(`invalid group for user ${username}`);
                 console.log('error couldnt find group:',e);
             }
-
+        }
         if (group) {
             const owner = group.getOwner();
             const isGroupDefault = {owner, provider, isGroupDefault: true};
