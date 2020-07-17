@@ -1,3 +1,4 @@
+const _ = require('lodash');
 const InputTypes = require('./input-types');
 const createLogger = require('./procedures/utils/logger');
 const CacheManager = require('cache-manager');
@@ -8,7 +9,7 @@ const {promisify} = require('util');
 const rm_rf = promisify(require('rimraf'));
 
 class DataService {
-    constructor(record) {
+    constructor(record, cache=true) {
         this.serviceName = record.name;
         this._logger = createLogger(this.serviceName);
         this._data = record.data;
@@ -17,7 +18,7 @@ class DataService {
         ensureExists(this._getCacheDir());
         record.methods.forEach(method => {
             try {
-                this._initializeRPC(method);
+                this._initializeRPC(method, cache);
             } catch (err) {
                 this._logger.error(`Unable to load ${record.name}.${method.name}: ${err.message}`);
             }
@@ -28,44 +29,34 @@ class DataService {
         return `${CACHE_DIR}/Community/${this.serviceName}`;
     }
 
-    async _initializeRPC(method) {
-        this._logger.info(`initializing ${method.name}`);
-        this[method.name] = () => this._methodLoading(method.name);
+    async _initializeRPC(methodSpec, useCache) {
+        const method = new DataServiceMethod(this._data, methodSpec);
+        if (useCache) {
+            const cache = CacheManager.caching({
+                store: fsStore,
+                options: {
+                    ttl: 3600 * 24 * 14,
+                    maxsize: 1024*1000,
+                    path: `${this._getCacheDir()}/${methodSpec.name}`,
+                    preventfill: false,
+                    reviveBuffers: true
+                }
+            });
 
-        const data = this._data.slice(1);  // skip headers
-        const factory = await this._getFunctionForMethod(method, this._data);
-        if (!factory) return;
+            this[methodSpec.name] = function() {
+                const args = Array.prototype.slice.call(arguments);
+                const id = args.join('|');
 
-        const cache = CacheManager.caching({
-            store: fsStore,
-            options: {
-                ttl: 3600 * 24 * 14,
-                maxsize: 1024*1000,
-                path: `${this._getCacheDir()}/${method.name}`,
-                preventfill: false,
-                reviveBuffers: true
-            }
-        });
-
-        this[method.name] = async function() {
-            const args = Array.prototype.slice.call(arguments);
-            const id = args.join('|');
-
-            return cache.wrap(
-                id,
-                async () => {
-                    const fn = factory();
-                    args.push(data);
-
-                    return await fn.apply(this, args);
-                },
-            );
-        };
-
-    }
-
-    _methodLoading(name) {
-        throw new Error(`RPC "${name}" not yet ready. Please retry.`);
+                return cache.wrap(
+                    id,
+                    async () => await method.invoke(...args)
+                );
+            };
+        } else {
+            this[methodSpec.name] = async function() {
+                return await method.invoke(...arguments);
+            };
+        }
     }
 
     async _getFunctionForMethod(method, data) {
@@ -143,6 +134,118 @@ class DataDocs {
                 })),
             };
         }
+    }
+}
+
+class DataServiceMethod {
+    constructor(data, spec) {
+        this.data = data;
+        this.spec = spec;
+        this._compiled = null;
+        const seconds = 1000;
+        this.cacheTTL = 30*seconds;
+        this.clearCacheID = null;
+    }
+
+    async invoke() {
+        const factory = await this.func();
+        const fn = factory();
+        const data = this.data.slice(1);  // skip headers
+        const args = Array.prototype.slice.call(arguments);
+        args.push(data);
+
+        return await fn.apply(this, args);
+    }
+
+    async func() {
+        if (!this._compiled) {
+            this._compiled = await this.compile();
+            if (this.clearCacheID) {
+                clearTimeout(this.clearCacheID);
+            }
+            this.clearCacheID = setTimeout(
+                () => this.clearCache(),
+                this.cacheTTL
+            );
+        }
+        return this._compiled;
+    }
+
+    clearCache() {
+        this.clearCacheID = null;
+        this._compiled = null;
+    }
+
+    async compile(data=this.data, spec=this.spec) {
+        if (spec.code) {
+            const fn = await InputTypes.parse.Function(spec.code);
+            return () => fn;
+        } else if (spec.query) {
+            const queryFn = await InputTypes.parse.Function(spec.query.code);
+            const transformFn = spec.transform ?
+                await InputTypes.parse.Function(spec.transform.code) : row => row;
+
+            let combineFn, initialValue;
+            if (spec.combine) {
+                combineFn = await InputTypes.parse.Function(spec.combine.code);
+                initialValue = spec.initialValue !== undefined ?
+                    spec.initialValue : null;
+            } else {
+                combineFn = (list, item) => list.concat([item]);
+                initialValue = [];
+            }
+            const hasInitialValue = initialValue !== null;
+
+            return () => async function() {
+                const [queryArgs, transformArgs, combineArgs] = this._getArgs(spec, arguments);
+                const startIndex = hasInitialValue ? 1 : 2;
+                let results;
+
+                if (hasInitialValue) {
+                    results = _.cloneDeep(initialValue);
+                } else {
+                    const args = queryArgs.slice();
+                    const row = data[1];
+                    args.push(row);
+                    if (await queryFn.apply(null, args)) {
+                        let args = transformArgs.slice();
+                        args.push(row);
+                        results = await transformFn.apply(null, args);
+                    }
+                }
+
+                for (let i = startIndex; i < data.length; i++) {
+                    const args = queryArgs.slice();
+                    const row = data[i];
+                    args.push(row);
+                    if (await queryFn.apply(null, args)) {
+                        let args = transformArgs.slice();
+                        args.push(row);
+                        const value = await transformFn.apply(null, args);
+
+                        args = combineArgs.slice();
+                        args.push(results, value);
+
+                        results = await combineFn.apply(null, args);
+                    }
+                }
+
+                return results;
+            };
+        }
+    }
+
+    _getArgs(method, allArgs) {
+        const queryArgCount = method.query.arguments.length-1;
+        const transformArgCount = method.transform ? method.transform.arguments.length-1 : 0;
+        const combineArgCount = method.combine ? method.combine.arguments.length - 2 : 0;
+
+        let startIndex = 0;
+        return [queryArgCount, transformArgCount, combineArgCount].map(count => {
+            const args = Array.prototype.slice.call(allArgs, startIndex, startIndex + count);
+            startIndex += count;
+            return args;
+        });
     }
 }
 
